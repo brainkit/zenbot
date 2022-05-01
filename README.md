@@ -85,3 +85,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+успех
+./zenbot.sh trade binance.SOL-USDT --avg_slippage_pct=0.045 --backtester_generation=17 --buy_stop_pct=50 --down=1.005 --fitnessCalcType=profitwl --markdown_buy_pct=0.3713737257330947 --markup_sell_pct=0.6492800760891511 --max_buy_loss_pct=99 --max_sell_loss_pct=99 --max_slippage_pct=5 --min_periods=36 --order_poll_time=5000 --order_type=maker --period=14m --period_length=14m --profit_stop_enable_pct=0 --profit_stop_pct=6 --quarentine_time=0 --rsi_periods=14 --sell_stop_pct=7 --strategy=pivot --symmetrical=false --up=1.005 --net_currency=101.18675108100003 --start=202204200300 --asset_capital=0 --currency_capital=100
+

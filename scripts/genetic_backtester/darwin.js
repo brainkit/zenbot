@@ -281,64 +281,64 @@ function simulateGeneration(generateLaunchFile) {
 
     const fields = [
       {
-        "label": "Selector",
-        "value": "selector"
+        'label': 'Selector',
+        'value': 'selector'
       },
       {
-        "label": "Fitness",
-        "value": "fitness"
+        'label': 'Fitness',
+        'value': 'fitness'
       },
       {
-        "label": "VS Buy Hold (%)",
-        "value": "vsBuyHold"
+        'label': 'VS Buy Hold (%)',
+        'value': 'vsBuyHold'
       },
       {
-        "label": "Win/Loss Ratio",
-        "value": "wlRatio"
+        'label': 'Win/Loss Ratio',
+        'value': 'wlRatio'
       },
       {
-        "label": "# Trades/Day",
-        "value": "frequency"
+        'label': '# Trades/Day',
+        'value': 'frequency'
       },
       {
-        "label": "Strategy",
-        "value": "strategy"
+        'label': 'Strategy',
+        'value': 'strategy'
       },
       {
-        "label": "Order Type",
-        "value": "order_type"
+        'label': 'Order Type',
+        'value': 'order_type'
       },
       {
-        "label": "Ending Balance ($)",
-        "value": "endBalance"
+        'label': 'Ending Balance ($)',
+        'value': 'endBalance'
       },
       {
-        "label": "Buy Hold ($)",
-        "value": "buyHold"
+        'label': 'Buy Hold ($)',
+        'value': 'buyHold'
       },
       {
-        "label": "# Wins",
-        "value": "wins"
+        'label': '# Wins',
+        'value': 'wins'
       },
       {
-        "label": "# Losses",
-        "value": "losses"
+        'label': '# Losses',
+        'value': 'losses'
       },
       {
-        "label": "Period",
-        "value": "period_length"
+        'label': 'Period',
+        'value': 'period_length'
       },
       {
-        "label": "Min Periods",
-        "value": "min_periods"
+        'label': 'Min Periods',
+        'value': 'min_periods'
       },
       {
-        "label": "# Days",
-        "value": "days"
+        'label': '# Days',
+        'value': 'days'
       },
       {
-        "label": "Full Parameters",
-        "value": "params"
+        'label': 'Full Parameters',
+        'value': 'params'
       }
     ]
 

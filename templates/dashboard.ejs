@@ -460,7 +460,7 @@
             <!-- ============================================================== -->
             <!-- table -->
             <!-- ============================================================== -->
-            <div class="row">
+            <!-- <div class="row">
                 <div class="col-md-12 col-lg-12 col-sm-12">
                     <div class="white-box">
                         <h3 class="box-title">CoinMarketCap Data</h3>
@@ -486,7 +486,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
         </div>
         <!-- /.container-fluid -->
         <footer class="footer text-center"> <%= (new Date()).getFullYear() %> &copy; zenbot </footer>
@@ -505,7 +505,7 @@
 <script src="assets-wp/app.bundle.js"></script>
 <!--<script src="assets-wp/common.bundle.js"></script>-->
 
-<script>
+<!-- <script>
 
     var xmlhttp = new XMLHttpRequest();
     xmlhttp.onreadystatechange = function() {
@@ -537,10 +537,12 @@
 
     };
 
-
-    xmlhttp.open("GET", "https://api.coinmarketcap.com/v1/ticker/", true);
+   
+    xmlhttp.open("GET", "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest", true);
+    xmlhttp.setRequestHeader( 'X-CMC_PRO_API_KEY', '3d7b4755-6aa6-49ec-8643-31a8c631cf30');
+    // xmlhttp.setRequestHeader( 'Content-Type', 'application/x-www-form-urlencoded');
     xmlhttp.send();
-</script>
+</script> -->
 </body>
 
 </html>
