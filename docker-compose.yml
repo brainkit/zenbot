@@ -7,11 +7,12 @@ services:
     image: deviavir/zenbot:unstable
     volumes:
       - ./simulations/:/app/simulations/
+      - ./strategies/:/app/strategies/
       - ./conf.js:/app/conf.js:ro
     restart: always
     tty: true
     ports:
-      - "17365:17365"
+      - "17367:17367"
     depends_on:
       - mongodb
     environment:

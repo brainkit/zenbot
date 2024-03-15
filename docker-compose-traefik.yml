@@ -1,4 +1,4 @@
-version: '3.1'
+version: "3.1"
 services:
   zenbotserver:
     build:
@@ -11,12 +11,12 @@ services:
     restart: always
     tty: true
     expose:
-      - "17365"
+      - "17367"
     labels:
       - "traefik.enable=true"
       - "traefik.frontend.rule=Host:$(TRAEFIK_HOST_ZEN)"
       - "traefik.docker.network=$(TRAEFIK_NETWORK_NAME)"
-      - "traefik.port=17365"
+      - "traefik.port=17367"
       - "traefik.frontend.auth.basic=$(BASIC_AUTH_ZEN)"
     networks:
       - internal

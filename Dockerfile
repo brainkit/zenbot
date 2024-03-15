@@ -1,10 +1,10 @@
-FROM node:10 as builder
+FROM node:18 as builder
 ADD . /app
 WORKDIR /app
 RUN npm install -g node-gyp
 RUN npm install --unsafe
 
-FROM node:10-alpine
+FROM node:18-alpine
 
 COPY zenbot.sh /usr/local/bin/zenbot
 
