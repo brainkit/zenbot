@@ -100,6 +100,10 @@ c.therock = {}
 c.therock.key = process.env.ZENBOT_THEROCK_API_KEY || 'YOUR-API-KEY'
 c.therock.secret = process.env.ZENBOT_THEROCK_SECRET || 'YOUR-API-SECRET'
 
+
+c.bybit = {}
+c.bybit.key = process.env.ZENBOT_BYBIT_API_KEY || 'rs2tiP4JlRVm7nklBA'
+c.bybit.secret = process.env.ZENBOT_BYBIT_SECRET || 'ZKfaYmw5yXTWl6NdZDZhCeg8cX7LESDcHN41'
 // Optional stop-order triggers:
 
 // sell if price drops below this % of bought price (0 to disable)
