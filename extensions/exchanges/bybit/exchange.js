@@ -67,32 +67,63 @@ module.exports = function bybit(conf) {
       var startTime = null
       var args = {}
 
+      var trades_limit = typeof opts.limit !== undefined ? opts.limit : 1000
+      //args.category = typeof opts.category !== undefined ? opts.category : "linear"
+
+      const PER_HOUR_MLS_COUNT = 300000
+      var time_interval_left_boundary = null
+
+      var last_start_time = (new Date()).getTime()
+
+      if (opts.to)
+        last_start_time = parseInt(opts.to, 10)
+
       if (!opts.from) {
-        startTime = parseInt(opts.to, 10) - 3600000
-        args['endTime'] = opts.to
-      } else startTime = opts.from
+        time_interval_left_boundary = parseInt(opts.to, 10) - PER_HOUR_MLS_COUNT
+
+        //args['endTime'] = opts.to
+      } else
+        time_interval_left_boundary = opts.from
 
       const symbol = opts.product_id.replace("-", "/")
 
-      client.fetchTrades(symbol, startTime, undefined, args)
-      .then(result => {
-        if (result.length === 0 && opts.from) {
-          // client.fetchTrades() only returns trades in an 1 hour interval.
-          // So we use fetchOHLCV() to detect trade appart from more than 1h.
-          // Note: it's done only in forward mode.
-          const time_diff = client.options['timeDifference']
+      var new_start_time = null
 
-          if (startTime + time_diff < (new Date()).getTime() - 3600000) {
-            // startTime is older than 1 hour ago.
-            return client.fetchOHLCV(symbol, undefined, startTime).then(ohlcv => {
-              return ohlcv.length ? client.fetchTrades(symbol, ohlcv[0][0]) : []
-            })
-          }
+      var fetched_trades = []
+
+      var all_trades = []
+
+      calls_count = 0
+      returns_count = 0
+
+      var all_trades_getter = new Promise((resolve, reject) => {
+        while (last_start_time > time_interval_left_boundary) {
+          if (time_interval_left_boundary > last_start_time - PER_HOUR_MLS_COUNT)
+            new_start_time = time_interval_left_boundary
+          else
+            new_start_time = last_start_time - PER_HOUR_MLS_COUNT
+
+          console.log("bybit getTrades startTime : " + new_start_time)
+          ++calls_count
+
+          client.fetchTrades(symbol, new_start_time, trades_limit, args)
+          .then(result => {
+            ++returns_count
+            fetched_trades = fetched_trades.concat(result)
+
+            if (returns_count === calls_count)
+              resolve(fetched_trades)
+
+            //console.log(result)
+
+            return result
+          })
+          last_start_time = new_start_time - 1
         }
-
-        return result
       })
-      .then(result => {
+
+      all_trades_getter.then(result => {
+
         var trades = result.map(trade => ({
           trade_id: trade.id,
           time: trade.timestamp,
@@ -103,17 +134,18 @@ module.exports = function bybit(conf) {
 
         cb(null, trades)
       })
-      .catch(function (error) {
-        console.error('An error occurred', error)
-        return retry('getTrades', func_args)
-      })
     },
 
     getBalance: function (opts, cb) {
       var func_args = [].slice.call(arguments)
       var client = authedClient()
 
-      client.fetchBalance().then(result => {
+      var args = {}
+
+      if (typeof opts.type !== undefined)
+        args.type = opts.type
+
+      client.fetchBalance(args).then(result => {
         var balance = {asset: 0, currency: 0}
 
         Object.keys(result).forEach(function (key) {
@@ -140,7 +172,15 @@ module.exports = function bybit(conf) {
       var func_args = [].slice.call(arguments)
       var client = publicClient()
 
-      client.fetchTicker(opts.product_id.replace("-", "/"))
+      var args = {}
+
+      if (typeof opts.baseCoin !== undefined)
+        args.baseCoin = opts.baseCoin
+
+      if (typeof opts.expDate !== undefined)
+        args.expDate = opts.expDate
+
+      client.fetchTicker(opts.product_id.replace("-", "/"), args)
       .then(result => {
         cb(null, {bid: result.bid, ask: result.ask})
       })
@@ -155,7 +195,16 @@ module.exports = function bybit(conf) {
       var func_args = [].slice.call(arguments)
       var client = publicClient()
 
-      client.fetchOrderBook(opts.product_id.replace("-", "/"), {limit: opts.limit}).then(result => {
+      var args = {}
+
+      var limit = undefined
+
+      if (typeof opts.limit !== undefined)
+        limit = opts.limit
+
+      args.category = typeof opts.category !== undefined ? opts.category : "linear" //spot, linear, inverse, option
+
+      client.fetchOrderBook(opts.product_id.replace("-", "/"), limit, args).then(result => {
         cb(null, result)
       })
       .catch(function (error) {
@@ -170,7 +219,12 @@ module.exports = function bybit(conf) {
 
       client.cancelOrder(opts.order_id, opts.product_id.replace("-", "/"))
       .then(function (body) {
-          if (body && (body.message === 'Order already done' || body.message === 'order not found'))
+
+          console.log(body)
+
+          process.stop(0)
+
+          if (body && (body.status !== 'Order already done' || body.message === 'order not found'))
             return cb()
 
           cb(null)
@@ -219,7 +273,7 @@ module.exports = function bybit(conf) {
           return cb(null, order)
         }
         order = {
-          id: result ? result.id : null,
+          id: result ? result.id : null, //
           status: 'open',
           price: opts.price,
           size: this.roundToNearest(opts.size, opts),
@@ -228,6 +282,9 @@ module.exports = function bybit(conf) {
           filled_size: '0',
           ordertype: opts.order_type
         }
+
+        console.log(order)
+        process.stop(0)
         orders['~' + result.id] = order
         cb(null, order)
       })
