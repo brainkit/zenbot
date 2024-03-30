@@ -5,6 +5,8 @@ const ccxt = require('ccxt'), path = require('path')
 module.exports = function bybit(conf) {
   var public_client, authed_client
 
+  const PER_DAY_MLS_COUNT = 86400000
+
   function publicClient() {
     if (!public_client) public_client = new ccxt.bybit({
       'apiKey': '', 'secret': '', 'options': {'adjustForTimeDifference': true}
@@ -61,78 +63,93 @@ module.exports = function bybit(conf) {
       return require('./products.json')
     },
 
+    fetchTrades: function (args) {
+      args.client.fetchOHLCV(args.symbol, "1m", args.new_start_time, args.trades_limit, args.args)
+      .then(list => {
+        ++this.returns_count
+
+        for (var i = 0; i < list.length; i++) {
+          if (this.all_trades[list[i][0]] === undefined) {
+
+            this.all_trades[list[i][0]] = 1
+
+            this.fetched_trades.push({
+              trade_id: list[i][0],
+              time: list[i][0],
+              size: parseFloat(list[i][5]),
+              price: parseFloat(list[i][4]),
+            })
+          }
+        }
+        console.log("args.new_start_time " + args.new_start_time)
+        console.log("this.returns_count " + this.returns_count)
+        console.log("this.calls_count " + this.calls_count)
+
+        if (this.returns_count === this.calls_count)
+          args.resolve(this.fetched_trades)
+
+        return list
+      })
+      .catch(function (error) {
+        console.error('An error occurred', error)
+        return this.fetchTrades(args)
+      })
+    },
+
     getTrades: function (opts, cb) {
-      var func_args = [].slice.call(arguments)
       var client = publicClient()
-      var startTime = null
+
       var args = {}
 
       var trades_limit = typeof opts.limit !== undefined ? opts.limit : 1000
-      //args.category = typeof opts.category !== undefined ? opts.category : "linear"
 
-      const PER_HOUR_MLS_COUNT = 300000
+      const TIME_SLICE_MLS_COUNT = 120000
+
       var time_interval_left_boundary = null
 
       var last_start_time = (new Date()).getTime()
 
-      if (opts.to)
-        last_start_time = parseInt(opts.to, 10)
-
-      if (!opts.from) {
-        time_interval_left_boundary = parseInt(opts.to, 10) - PER_HOUR_MLS_COUNT
-
-        //args['endTime'] = opts.to
-      } else
+      if (opts.from)
         time_interval_left_boundary = opts.from
+      else
+        time_interval_left_boundary = last_start_time - this.PER_DAY_MLS_COUNT
 
       const symbol = opts.product_id.replace("-", "/")
 
       var new_start_time = null
 
-      var fetched_trades = []
+      this.fetched_trades = []
 
-      var all_trades = []
+      this.all_trades = []
 
-      calls_count = 0
-      returns_count = 0
+      this.calls_count = 0
+      this.returns_count = 0
 
       var all_trades_getter = new Promise((resolve, reject) => {
         while (last_start_time > time_interval_left_boundary) {
-          if (time_interval_left_boundary > last_start_time - PER_HOUR_MLS_COUNT)
+
+          if (time_interval_left_boundary > last_start_time - TIME_SLICE_MLS_COUNT)
             new_start_time = time_interval_left_boundary
           else
-            new_start_time = last_start_time - PER_HOUR_MLS_COUNT
+            new_start_time = last_start_time - TIME_SLICE_MLS_COUNT
 
-          console.log("bybit getTrades startTime : " + new_start_time)
-          ++calls_count
+          ++this.calls_count
 
-          client.fetchTrades(symbol, new_start_time, trades_limit, args)
-          .then(result => {
-            ++returns_count
-            fetched_trades = fetched_trades.concat(result)
-
-            if (returns_count === calls_count)
-              resolve(fetched_trades)
-
-            //console.log(result)
-
-            return result
+          this.fetchTrades({
+            symbol: symbol,
+            new_start_time: new_start_time,
+            trades_limit: trades_limit,
+            args: args,
+            resolve: resolve,
+            client: client
           })
+
           last_start_time = new_start_time - 1
         }
       })
 
       all_trades_getter.then(result => {
-
-        var trades = result.map(trade => ({
-          trade_id: trade.id,
-          time: trade.timestamp,
-          size: parseFloat(trade.amount),
-          price: parseFloat(trade.price),
-          side: trade.side
-        }))
-
-        cb(null, trades)
+        cb(null, result)
       })
     },
 
