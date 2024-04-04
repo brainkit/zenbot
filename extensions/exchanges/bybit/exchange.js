@@ -2,10 +2,11 @@ const ccxt = require('ccxt'), path = require('path')
   // eslint-disable-next-line no-unused-vars
   , colors = require('colors'), _ = require('lodash')
 
+const fs = require('node:fs')
+
 module.exports = function bybit(conf) {
   var public_client, authed_client
 
-  const PER_DAY_MLS_COUNT = 86400000
 
   function publicClient() {
     if (!public_client) public_client = new ccxt.bybit({
@@ -30,17 +31,6 @@ module.exports = function bybit(conf) {
     return authed_client
   }
 
-  /**
-   * Convert BNB-BTC to BNB/BTC
-   *
-   * @param product_id BNB-BTC
-   * @returns {string}
-
-   function joinProduct(product_id) {
-    let split = product_id.split('-')
-    return split[0] + '/' + split[1]
-  }
-   */
   function retry(method, args, err) {
     if (method !== 'getTrades') {
       console.error(('\nbybit API is down! unable to call ' + method + ', retrying in 20s').red)
@@ -58,98 +48,178 @@ module.exports = function bybit(conf) {
 
   var exchange = {
     name: 'bybit', historyScan: 'forward', historyScanUsesTime: true, makerFee: 0.1, takerFee: 0.1,
+    PER_DAY_MLS_COUNT: 86400000, TIME_SLICE_MLS_COUNT: 120000,
 
     getProducts: function () {
       return require('./products.json')
     },
 
-    fetchTrades: function (args) {
-      args.client.fetchOHLCV(args.symbol, "1m", args.new_start_time, args.trades_limit, args.args)
+    fetchOHLCV: function (args, cb) {
+      var func_args = [].slice.call(arguments)
+
+      args.client.fetchOHLCV(args.symbol, undefined, args.new_start_time, args.trades_limit, args.args)
       .then(list => {
-        ++this.returns_count
+        if (list.length)
+          for (var i = 0; i < list.length; i++) {
+            if (list[i] !== undefined && list[i][0] !== undefined) {
+              var kline = {
+                id: list[i][0],
+                timestamp: list[i][0],
+                amount: parseFloat(list[i][5]),
+                price: parseFloat(list[i][1]),
+              }
 
-        for (var i = 0; i < list.length; i++) {
-          if (this.all_trades[list[i][0]] === undefined) {
-
-            this.all_trades[list[i][0]] = 1
-
-            this.fetched_trades.push({
-              trade_id: list[i][0],
-              time: list[i][0],
-              size: parseFloat(list[i][5]),
-              price: parseFloat(list[i][4]),
-            })
+              this.all_OHLCV.push(kline)
+            }
           }
+
+        if (this.all_OHLCV.length !== 0 && list.length !== 0) {
+          args.new_start_time = this.all_OHLCV[this.all_OHLCV.length - 1].timestamp + 1
+          this.fetchOHLCV(args, cb)
+        } else {
+          last_start_time = this.time_interval_right_boundary
+          cb(list.length)
         }
-        console.log("args.new_start_time " + args.new_start_time)
-        console.log("this.returns_count " + this.returns_count)
-        console.log("this.calls_count " + this.calls_count)
-
-        if (this.returns_count === this.calls_count)
-          args.resolve(this.fetched_trades)
-
-        return list
       })
       .catch(function (error) {
         console.error('An error occurred', error)
-        return this.fetchTrades(args)
+        return retry('fetchOHLCV', func_args)
       })
+    },
+
+    fetchTrades: function (args, cb) {
+      args.client.fetchTrades(args.symbol, args.new_start_time, args.trades_limit, args.args)
+      .then(list => {
+        if (Array.isArray(list) && list.length > 0) {
+          list.forEach(elmn => {
+            if (elmn.id !== undefined && !this.trades_unique_ids.includes(elmn.id)) {
+              this.trades_unique_ids.push(elmn.id)
+              this.fetched_trades.push(elmn)
+            }
+          })
+        }
+
+        cb()
+      })
+      .catch(function (error) {
+        console.error('An error occurred', error)
+        return retry('fetchTrades', func_args)
+      })
+    },
+
+    fetchTradesByKlines: function (args, cb) {
+      args.kline_idx = 1
+
+      sub_cb = () => {
+        if (args.kline_idx < this.all_OHLCV.length - 1) {
+          console.log("args.kline_idx " + args.kline_idx)
+          console.log("args.new_start_time " + args.new_start_time)
+
+          var kline = this.all_OHLCV[args.kline_idx]
+
+          if (args.new_start_time + this.TIME_SLICE_MLS_COUNT >= kline.timestamp) {
+            args.new_start_time = kline.timestamp
+            ++args.kline_idx
+          } else
+            args.new_start_time += this.TIME_SLICE_MLS_COUNT
+
+          this.fetched_trades.push(kline)
+
+          this.fetchTrades(args, sub_cb)
+
+        } else
+          cb()
+      }
+
+      this.fetchTrades(args, sub_cb)
     },
 
     getTrades: function (opts, cb) {
       var client = publicClient()
 
-      var args = {}
-
       var trades_limit = typeof opts.limit !== undefined ? opts.limit : 1000
 
-      const TIME_SLICE_MLS_COUNT = 120000
+      this.time_interval_right_boundary = (new Date()).getTime()
 
-      var time_interval_left_boundary = null
-
-      var last_start_time = (new Date()).getTime()
+      console.log(opts)
 
       if (opts.from)
-        time_interval_left_boundary = opts.from
+        last_start_time = opts.from
       else
-        time_interval_left_boundary = last_start_time - this.PER_DAY_MLS_COUNT
+        last_start_time = this.time_interval_right_boundary - this.PER_DAY_MLS_COUNT
 
       const symbol = opts.product_id.replace("-", "/")
 
-      var new_start_time = null
-
       this.fetched_trades = []
+      this.trades_unique_ids = []
 
       this.all_trades = []
 
       this.calls_count = 0
       this.returns_count = 0
+      this.all_OHLCV = []
+
+      var params = {
+        symbol: symbol,
+        new_start_time: last_start_time,
+        trades_limit: trades_limit,
+        args: {category: "linear"},
+        client: client
+      }
 
       var all_trades_getter = new Promise((resolve, reject) => {
-        while (last_start_time > time_interval_left_boundary) {
-
-          if (time_interval_left_boundary > last_start_time - TIME_SLICE_MLS_COUNT)
-            new_start_time = time_interval_left_boundary
-          else
-            new_start_time = last_start_time - TIME_SLICE_MLS_COUNT
-
-          ++this.calls_count
-
-          this.fetchTrades({
-            symbol: symbol,
-            new_start_time: new_start_time,
-            trades_limit: trades_limit,
-            args: args,
-            resolve: resolve,
-            client: client
+        if (last_start_time < this.time_interval_right_boundary) {
+          params.new_start_time = last_start_time
+          this.fetchOHLCV(params, () => {
+            resolve(this.all_OHLCV)
           })
-
-          last_start_time = new_start_time - 1
         }
       })
 
+
       all_trades_getter.then(result => {
-        cb(null, result)
+        console.log("klines count: " + result.length)
+
+        var klines_processed = new Promise((resolve, reject) => {
+          if (Array.isArray(this.all_OHLCV) && this.all_OHLCV.length !== 0) {
+            kline_time = this.all_OHLCV[0].timestamp
+
+            console.log("fetching trades by kline time " + kline_time)
+
+            params.new_start_time = kline_time
+
+            this.fetchTradesByKlines(params, () => {
+              resolve(this.fetched_trades)
+            })
+          } else
+            resolve(this.fetched_trades)
+        })
+
+        klines_processed.then(result => {
+          var trades = result.map(trade => ({
+            trade_id: trade.id,
+            time: trade.timestamp,
+            size: parseFloat(trade.amount),
+            price: parseFloat(trade.price),
+            side: trade.side
+          }))
+
+          trades.sort(function compareFunction(a, b) {
+            return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0)
+          })
+          /*
+                    trades.forEach(trade => {
+                      fs.appendFileSync('/var/www/zenbot/zen_test.txt', JSON.stringify(trade) + "\r\n", {flag: 'a'}, err => {
+                        if (err) {
+                          console.error(err);
+                        } else {
+                          // file written successfully
+                        }
+                      });
+                    })
+          */
+          cb(null, trades)
+        })
       })
     },
 
