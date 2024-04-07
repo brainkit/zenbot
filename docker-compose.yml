@@ -8,6 +8,7 @@ services:
     volumes:
       - ./simulations/:/app/simulations/
       - ./strategies/:/app/strategies/
+      - ./extensions/:/app/extensions/
       - ./conf.js:/app/conf.js:ro
     restart: always
     tty: true
