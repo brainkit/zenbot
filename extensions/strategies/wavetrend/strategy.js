@@ -173,7 +173,7 @@ module.exports = {
 
   phenotypes: {
     // -- common
-    period_length: Phenotypes.ListOption(['5m']),
+    period_length: Phenotypes.ListOption(['10m']),
     min_periods: Phenotypes.Range(1, 200),
     markdown_buy_pct: Phenotypes.RangeFloat(-1, 5),
     markup_sell_pct: Phenotypes.RangeFloat(-1, 5),
